@@ -1,45 +1,3 @@
-# protoc-gen-twirp_swagger
-
-
-## What this is
-
-A plugin for the awesome twirp - https://github.com/twitchtv/twirp.
-
-It is a protobuf generator that creates a swagger file for your twirp services.
-
-This swagger file can then be used to generate clients for many many languages.
-See: https://github.com/swagger-api/swagger-codegen#overview
-
-
-
-## Usage
-
-`go get github.com/elliots/protoc-gen-twirp_swagger`
-
-then run as part of your usual protoc generation phase
-
-
-```bash
-protoc --go_out=. \
-       --twirp_out=. \
-       --twirp_swagger_out=. \
-       ./test.proto
-```
-
-Check out [./example/generate.sh](./example/generate.sh)
-
-## Thanks
-
-Based on: https://github.com/grpc-ecosystem/grpc-gateway/tree/master/protoc-gen-swagger
-
-Like, 99.5% based on.
-
-
-
-## Example output
-
-```json
-
 {
   "swagger": "2.0",
   "info": {
@@ -117,5 +75,3 @@ Like, 99.5% based on.
     }
   }
 }
-
-```
