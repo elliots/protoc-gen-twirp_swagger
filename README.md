@@ -1,5 +1,7 @@
 # protoc-gen-twirp_swagger
 
+NOTE: WORK IN PROGRESS. COMPLETELY UNTESTED.
+
 
 ## What this is
 
@@ -8,8 +10,6 @@ A plugin for the awesome twirp - https://github.com/twitchtv/twirp.
 It is a protobuf generator that creates a swagger file for your twirp services.
 
 This swagger file can then be used to generate clients for many many languages.
-See: https://github.com/swagger-api/swagger-codegen#overview
-
 
 
 ## Usage
@@ -26,7 +26,15 @@ protoc --go_out=. \
        ./test.proto
 ```
 
-Check out [./example/generate.sh](./example/generate.sh)
+Check out [./_example/generate.sh](./example/generate.sh)
+
+
+## Generating Clients
+
+See: [./_example/generate-clients.sh](./_example/generate-clients.sh) for example clients for javascript, java, python, ruby, lua, and c#. As well as generated html documentation.
+
+Note that there are a thousand options to pass to the generators, I'm just running the default.
+
 
 ## Thanks
 
