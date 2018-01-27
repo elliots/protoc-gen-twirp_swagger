@@ -2,6 +2,8 @@
 
 NOTE: This is new and barely tested. If you find problems, please open an issue :)
 
+Also Note: None of the clients or servers generated from swagger support protobuf. Only json.
+
 Table of Contents
 =================
 
@@ -250,7 +252,11 @@ func main() {
 
 ### Generating servers
 
-It is possible to generate servers using swagger-codegen, but I haven't tried it myself.
+`./generate-documentation.sh`
+
+Generates servers for rust and node.js.
+
+See [example/servers](example/servers)
 
 ## Thanks
 

@@ -1,0 +1,78 @@
+---
+swagger: "2.0"
+info:
+  version: "version not set.0.0"
+  title: "service.proto"
+schemes:
+- "http"
+- "https"
+consumes:
+- "application/json"
+produces:
+- "application/json"
+paths:
+  /twirp/twitch.twirp.example.Haberdasher/MakeHat:
+    post:
+      tags:
+      - "Haberdasher"
+      summary: "MakeHat produces a hat of mysterious, randomly-selected color!"
+      operationId: "MakeHat"
+      parameters:
+      - in: "body"
+        name: "body"
+        required: true
+        schema:
+          $ref: "#/definitions/exampleSize"
+        uppercase_data_type: "EXAMPLESIZE"
+        refName: "exampleSize"
+        formatString: "{:?}"
+        example: "???"
+        model_key: "exampleSize"
+        uppercase_operation_id: "MAKE_HAT"
+        consumesJson: true
+      responses:
+        200:
+          description: ""
+          schema:
+            $ref: "#/definitions/exampleHat"
+          x-responseId: ""
+          x-uppercaseResponseId: ""
+          uppercase_operation_id: "MAKE_HAT"
+          uppercase_data_type: "EXAMPLEHAT"
+          producesJson: true
+      operation_id: "make_hat"
+      uppercase_operation_id: "MAKE_HAT"
+      path: "/twirp/twitch.twirp.example.Haberdasher/MakeHat"
+      HttpMethod: "Post"
+      httpmethod: "post"
+      noClientExample: true
+definitions:
+  exampleHat:
+    type: "object"
+    properties:
+      size:
+        type: "integer"
+        format: "int32"
+        description: "The size of a hat should always be in inches."
+      color:
+        type: "string"
+        description: "The color of a hat will never be 'invisible', but other than\n\
+          that, anything is fair game."
+      name:
+        type: "string"
+        description: "The name of a hat is it's type. Like, 'bowler', or something."
+    description: "A Hat is a piece of headwear made by a Haberdasher."
+    example:
+      size: 0
+      color: "color"
+      name: "name"
+    upperCaseName: "EXAMPLEHAT"
+  exampleSize:
+    type: "object"
+    properties:
+      inches:
+        type: "integer"
+        format: "int32"
+    description: "Size is passed when requesting a new hat to be made. It's always\n\
+      measured in inches."
+    upperCaseName: "EXAMPLESIZE"
