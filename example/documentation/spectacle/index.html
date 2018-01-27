@@ -1,0 +1,259 @@
+<!doctype html>
+<html class="no-js" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>service.proto | API Reference</title>
+    <link rel="stylesheet" href="stylesheets/foundation.min.css" />
+    <link rel="stylesheet" href="stylesheets/spectacle.min.css" />
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <!-- <script src="javascripts/foundation.js"></script> -->
+    <script src="javascripts/spectacle.min.js"></script>
+  </head>
+  <body id="spectacle">
+    <div id="page" class="drawer-layout drawer-slide-right-large">
+      <div id="sidebar">
+        <button class="close-button" aria-label="Close menu" type="button" data-drawer-close>
+          <span aria-hidden="true">×</span>
+        </button>
+        <nav id="nav" role="navigation">
+          <h5>API Reference</h5>
+          <a href="#introduction">Introduction</a>
+          <h5>Paths</h5>
+          <!-- <section>
+                <a href="#path--twirp-twitch.twirp.example.Haberdasher-MakeHat">/twirp/twitch.twirp.example.Haberdasher/MakeHat</a>
+                <ul> -->
+          <!-- <li> -->
+          <a href="#operation--twirp-twitch.twirp.example.Haberdasher-MakeHat-post"> MakeHat produces a hat of mysterious, randomly-selected color! </a>
+          <!-- </li> -->
+          <!-- </ul>
+              </section> -->
+          <h5>Schema Definitions</h5>
+          <a href="#definition-exampleHat"> exampleHat </a>
+          <a href="#definition-exampleSize"> exampleSize </a>
+        </nav>
+      </div>
+      <div id="docs" class="row collapse expanded drawer" data-drawer>
+        <button class="floating-menu-icon" type="button" data-drawer-slide="right">
+          <span class="hamburger"></span>
+        </button>
+        <div class="example-box doc-content"></div>
+        <article>
+          <div id="introduction" data-traverse-target="introduction">
+            <h1 class="doc-title">service.proto
+              <span>API Reference</span>
+            </h1>
+            <div class="doc-row">
+              <div class="doc-copy"> undefined </div>
+              <div class="doc-examples">
+                <section>
+                  <h5>Request Content-Types:
+                    <span>application/json</span>
+                  </h5>
+                  <h5>Response Content-Types:
+                    <span>application/json</span>
+                  </h5>
+                  <h5>Schemes:
+                    <span>http, https</span>
+                  </h5>
+                  <h5>Version:
+                    <span>version not set</span>
+                  </h5>
+                </section>
+              </div>
+            </div>
+          </div>
+          <h1>Paths</h1>
+          <span id="path--twirp-twitch.twirp.example.Haberdasher-MakeHat"></span>
+          <div id="operation--twirp-twitch.twirp.example.Haberdasher-MakeHat-post" class="operation panel" data-traverse-target="operation--twirp-twitch.twirp.example.Haberdasher-MakeHat-post">
+            <!-- <section class="operation-tags row"> -->
+            <!-- <div class="doc-copy"> -->
+            <div class="operation-tags">
+              <a class="label" href="#tag-Haberdasher">Haberdasher</a>
+              <!---->
+            </div>
+            <!-- </div> -->
+            <!-- </section> -->
+            <h2 class="operation-title">
+              <span class="operation-summary">MakeHat produces a hat of mysterious, randomly-selected color!</span>
+            </h2>
+            <div class="doc-row content-types">
+              <div class="doc-copy"> </div>
+              <div class="doc-examples"> </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-operation-path">
+                  <span class="operation-method">POST</span>
+                  <span class="operation-path">/twirp/twitch.twirp.example.Haberdasher/MakeHat</span>
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-request-body">
+                  <div class="prop-row">
+                    <div class="prop-name">
+                      <div class="swagger-request-model">
+                        <span class="">
+                          <a class="json-schema-ref" href="#/definitions/exampleSize">exampleSize</a>
+                        </span>
+                      </div>
+                    </div>
+                    <div class="prop-value columns small-6">
+                      <!-- <div class="swagger-request-description"> -->undefined
+                      <!-- </div> -->
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="doc-examples">
+                <section>
+                  <h5>Request Example</h5>
+                  <!-- <div class="hljs"> --><pre><code class="hljs lang-json">{
+  <span class="hljs-attr">&quot;inches&quot;</span>: <span class="hljs-string">&quot;integer (int32)&quot;</span>
+}
+</code></pre>
+                  <!-- </div> -->
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-responses">
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">200 OK</div>
+                      <div class="prop-ref">
+                        <span class="">
+                          <a class="json-schema-ref" href="#/definitions/exampleHat">exampleHat</a>
+                        </span>
+                      </div>
+                      <!-- <span class="swagger-global"></span> <span class="json-schema-reference"><a href=""></a></span> -->
+                    </div>
+                    <div class="prop-value"> </div>
+                  </div>
+                </section>
+              </div>
+              <div class="doc-examples">
+                <section>
+                  <h5>Response Example
+                    <span>(200 OK)</span>
+                  </h5>
+                  <!-- <div class="hljs"> --><pre><code class="hljs lang-json">{
+  <span class="hljs-attr">&quot;size&quot;</span>: <span class="hljs-string">&quot;integer (int32)&quot;</span>,
+  <span class="hljs-attr">&quot;color&quot;</span>: <span class="hljs-string">&quot;string&quot;</span>,
+  <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;string&quot;</span>
+}
+</code></pre>
+                  <!-- </div> -->
+                </section>
+              </div>
+            </div>
+          </div>
+          <h1>Schema Definitions</h1>
+          <div id="definition-exampleHat" class="definition panel" data-traverse-target="definition-exampleHat">
+            <h2 class="panel-title">
+              <a name="/definitions/exampleHat"></a>exampleHat:
+              <span class="json-property-type">
+                <span class="json-property-type">object</span>
+                <span class="json-property-range" title="Value limits"></span>
+              </span>
+            </h2>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="json-schema-description">
+                  <p>A Hat is a piece of headwear made by a Haberdasher.</p>
+                </section>
+                <section class="json-schema-properties">
+                  <dl>
+                    <dt data-property-name="size">
+                      <span class="json-property-name">size:</span>
+                      <span class="json-property-type">integer</span>
+                      <span class="json-property-format">(int32)</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>The size of a hat should always be in inches.</p>
+                    </dd>
+                    <dt data-property-name="color">
+                      <span class="json-property-name">color:</span>
+                      <span class="json-property-type">string</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>The color of a hat will never be &#39;invisible&#39;, but other than that, anything is fair game.</p>
+                    </dd>
+                    <dt data-property-name="name">
+                      <span class="json-property-name">name:</span>
+                      <span class="json-property-type">string</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>The name of a hat is it&#39;s type. Like, &#39;bowler&#39;, or something.</p>
+                    </dd>
+                  </dl>
+                </section>
+              </div>
+              <div class="doc-examples">
+                <section>
+                  <h5>Example</h5>
+                  <!-- <div class="hljs"> --><pre><code class="hljs lang-json">{
+  <span class="hljs-attr">&quot;size&quot;</span>: <span class="hljs-string">&quot;integer (int32)&quot;</span>,
+  <span class="hljs-attr">&quot;color&quot;</span>: <span class="hljs-string">&quot;string&quot;</span>,
+  <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;string&quot;</span>
+}
+</code></pre>
+                  <!-- </div> -->
+                </section>
+              </div>
+            </div>
+          </div>
+          <div id="definition-exampleSize" class="definition panel" data-traverse-target="definition-exampleSize">
+            <h2 class="panel-title">
+              <a name="/definitions/exampleSize"></a>exampleSize:
+              <span class="json-property-type">
+                <span class="json-property-type">object</span>
+                <span class="json-property-range" title="Value limits"></span>
+              </span>
+            </h2>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="json-schema-description">
+                  <p>Size is passed when requesting a new hat to be made. It&#39;s always measured in inches.</p>
+                </section>
+                <section class="json-schema-properties">
+                  <dl>
+                    <dt data-property-name="inches">
+                      <span class="json-property-name">inches:</span>
+                      <span class="json-property-type">integer</span>
+                      <span class="json-property-format">(int32)</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                  </dl>
+                </section>
+              </div>
+              <div class="doc-examples">
+                <section>
+                  <h5>Example</h5>
+                  <!-- <div class="hljs"> --><pre><code class="hljs lang-json">{
+  <span class="hljs-attr">&quot;inches&quot;</span>: <span class="hljs-string">&quot;integer (int32)&quot;</span>
+}
+</code></pre>
+                  <!-- </div> -->
+                </section>
+              </div>
+            </div>
+          </div>
+          <div class="doc-row no-margin">
+            <div class="doc-copy doc-separator">
+              <a class="powered-by" href="https://sourcey.com/spectacle">Documentation by
+                <span>Spectacle</span>
+              </a>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,6 @@
+
+example/clients/go/vendor/
+
+example/clients/javascript/node_modules/
+
+\.vscode/

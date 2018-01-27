@@ -1,15 +1,34 @@
-# protoc-gen-twirp_swagger
+# Twirp Swagger Generator
 
-NOTE: WORK IN PROGRESS. COMPLETELY UNTESTED.
+NOTE: This is new and barely tested. If you find problems, please open an issue :)
 
+Table of Contents
+=================
 
-## What this is
+  * [What is this?](#what-is-this)
+  * [Usage](#usage)
+  * [Other uses](#other-uses)
+  * [Full Example](#full-example)
+      * [Generating the swagger file](#generating-the-swagger-file)
+        * [Output](#output)
+      * [Generating Clients](#generating-clients)
+      * [Using the Clients](#using-the-clients)
+        * [JavaScript](#javascript)
+        * [Python](#python)
+        * [Go](#go)
+      * [Generating documentation](#generating-documentation)
+        * [Spectacle](#spectacle)
+        * [swagger-codegen (html2 language)](#swagger-codegen-html2-language)
+      * [Generating servers](#generating-servers)
+  * [Thanks](#thanks)
 
-A plugin for the awesome twirp - https://github.com/twitchtv/twirp.
+## What is this?
+
+A plugin for the awesome twirp - https://github.com/twitchtv/twirp
 
 It is a protobuf generator that creates a swagger file for your twirp services.
 
-This swagger file can then be used to generate clients for many many languages.
+This swagger file can then be used to generate documentation and clients for many many languages.
 
 
 ## Usage
@@ -26,26 +45,23 @@ protoc --go_out=. \
        ./test.proto
 ```
 
-Check out [./_example/generate.sh](./example/generate.sh)
+## Other uses
+
+You can import the swagger file into a lot of other tools and services.
+
+If you find any good ones, add an issue so we can list them here.
+
+## Full Example
+
+Proto file taken from the twirp example.
+All scripts/clients/docs are in [example](example)
+
+### Generating the swagger file
+
+`./generate-swagger.sh` will create service.swagger.json
 
 
-## Generating Clients
-
-See: [./_example/generate-clients.sh](./_example/generate-clients.sh) for example clients for javascript, java, python, ruby, lua, and c#. As well as generated html documentation.
-
-Note that there are a thousand options to pass to the generators, I'm just running the default.
-
-
-## Thanks
-
-Based on: https://github.com/grpc-ecosystem/grpc-gateway/tree/master/protoc-gen-swagger
-
-Like, 99.5% based on.
-
-
-
-## Example output
-
+#### Output
 ```json
 
 {
@@ -127,3 +143,117 @@ Like, 99.5% based on.
 }
 
 ```
+
+### Generating Clients
+
+`./generate-clients.sh` will create clients for C#, go, java, javascript, lua, python, and ruby (many more are available)
+
+### Using the Clients
+
+#### JavaScript
+
+```javascript
+
+var Serviceproto = require('./javascript');
+
+var devClient = new Serviceproto.ApiClient();
+devClient.basePath = 'http://localhost:8080';
+
+var api = new Serviceproto.HaberdasherApi(devClient);
+
+var body = new Serviceproto.ExampleSize(); // {ExampleSize} 
+body.inches = 20;
+
+var callback = function(error, data, response) {
+  if (error) {
+    console.error(error);
+  } else {
+    console.log('API called successfully. Returned data: ', data);
+  }
+};
+api.makeHat(body, callback);
+
+```
+
+#### Python
+
+```python
+
+from __future__ import print_function
+import time
+import swagger_client
+from swagger_client.rest import ApiException
+from pprint import pprint
+# create an instance of the API class
+cfg = swagger_client.Configuration()
+cfg.host="http://localhost:8080"
+client = swagger_client.ApiClient(cfg)
+api_instance = swagger_client.HaberdasherApi(client)
+body = swagger_client.ExampleSize() # ExampleSize | 
+body.inches = 20
+
+try:
+    # MakeHat produces a hat of mysterious, randomly-selected color!
+    api_response = api_instance.make_hat(body)
+    pprint(api_response)
+except ApiException as e:
+    print("Exception when calling HaberdasherApi->make_hat: %s\n" % e)
+
+```
+
+
+#### Go
+
+Note: You almost certainly want to use the twirp client, not the swagger one. No protobuf here.
+
+```go
+
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/elliots/protoc-gen-twirp_swagger/example/clients/go"
+)
+
+func main() {
+	cfg := swagger.NewConfiguration()
+	cfg.BasePath = "http://localhost:8080"
+	client := swagger.NewAPIClient(cfg)
+
+	hat, resp, err := client.HaberdasherApi.MakeHat(context.Background(), swagger.ExampleSize{
+		Inches: 20,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Got response code: %d hat: %v", resp.StatusCode, hat)
+}
+
+```
+
+
+### Generating documentation
+
+`./generate-documentation.sh`
+
+#### Spectacle
+
+<img src="./example/spectacle.png" style="max-width: 60%">
+
+#### swagger-codegen (html2 language)
+
+<img src="./example/codegenhtml2.png" style="max-width: 60%">
+
+
+### Generating servers
+
+It is possible to generate servers using swagger-codegen, but I haven't tried it myself.
+
+## Thanks
+
+Based on: https://github.com/grpc-ecosystem/grpc-gateway/tree/master/protoc-gen-swagger (Like, 99.5% based on.)
+
+Table of contents created by [gh-md-toc](https://github.com/ekalinin/github-markdown-toc)
