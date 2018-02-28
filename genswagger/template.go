@@ -159,12 +159,12 @@ func findServicesMessagesAndEnumerations(s []*descriptor.Service, reg *descripto
 	for _, svc := range s {
 		for _, meth := range svc.Methods {
 			// Request may be fully included in query
-			if _, ok := refs[fmt.Sprintf("#/definitions/%s", fullyQualifiedNameToSwaggerName(meth.RequestType.FQMN(), reg))]; ok {
-				m[fullyQualifiedNameToSwaggerName(meth.RequestType.FQMN(), reg)] = meth.RequestType
+			if _, ok := refs[fmt.Sprintf("#/definitions/%s", *meth.RequestType.Name)]; ok {
+				m[*meth.RequestType.Name] = meth.RequestType
 			}
 			findNestedMessagesAndEnumerations(meth.RequestType, reg, m, e)
 
-			m[fullyQualifiedNameToSwaggerName(meth.ResponseType.FQMN(), reg)] = meth.ResponseType
+			m[*meth.ResponseType.Name] = meth.ResponseType
 			findNestedMessagesAndEnumerations(meth.ResponseType, reg, m, e)
 		}
 	}
@@ -243,7 +243,7 @@ func renderMessagesAsDefinition(messages messageMap, d swaggerDefinitionsObject,
 
 			schema.Properties = append(schema.Properties, keyVal{f.GetName(), fieldValue})
 		}
-		d[fullyQualifiedNameToSwaggerName(msg.FQMN(), reg)] = schema
+		d[*msg.Name] = schema
 	}
 }
 
@@ -272,11 +272,17 @@ func schemaOfField(f *descriptor.Field, reg *descriptor.Registry) swaggerSchemaO
 
 	switch ft := fd.GetType(); ft {
 	case pbdescriptor.FieldDescriptorProto_TYPE_ENUM, pbdescriptor.FieldDescriptorProto_TYPE_MESSAGE, pbdescriptor.FieldDescriptorProto_TYPE_GROUP:
-		if wktSchema, ok := wktSchemas[fd.GetTypeName()]; ok {
+		shortName := fd.GetTypeName()
+		if _, ok := wktSchemas[shortName]; !ok {
+			shortName = shortName[strings.LastIndex(fd.GetTypeName(), ".")+1:]
+		}
+
+		if wktSchema, ok := wktSchemas[shortName]; ok {
 			core = wktSchema
 		} else {
+
 			core = schemaCore{
-				Ref: "#/definitions/" + fullyQualifiedNameToSwaggerName(fd.GetTypeName(), reg),
+				Ref: "#/definitions/" + shortName,
 			}
 		}
 	default:
@@ -379,20 +385,8 @@ func renderEnumerationsAsDefinition(enums enumMap, d swaggerDefinitionsObject, r
 			panic(err)
 		}
 
-		d[fullyQualifiedNameToSwaggerName(enum.FQEN(), reg)] = enumSchemaObject
+		d[*enum.Name] = enumSchemaObject
 	}
-}
-
-// Take in a FQMN or FQEN and return a swagger safe version of the FQMN
-func fullyQualifiedNameToSwaggerName(fqn string, reg *descriptor.Registry) string {
-	registriesSeenMutex.Lock()
-	defer registriesSeenMutex.Unlock()
-	if mapping, present := registriesSeen[reg]; present {
-		return mapping[fqn]
-	}
-	mapping := resolveFullyQualifiedNameToSwaggerNames(append(reg.GetAllFQMNs(), reg.GetAllFQENs()...))
-	registriesSeen[reg] = mapping
-	return mapping[fqn]
 }
 
 // registriesSeen is used to memoise calls to resolveFullyQualifiedNameToSwaggerNames so
@@ -504,6 +498,7 @@ func templateToSwaggerPath(path string) string {
 
 func renderServices(pkg string, services []*descriptor.Service, paths swaggerPathsObject, reg *descriptor.Registry, refs refMap) error {
 	// Correctness of svcIdx and methIdx depends on 'services' containing the services in the same order as the 'file.Service' array.
+
 	for svcIdx, svc := range services {
 		for methIdx, meth := range svc.Methods {
 
@@ -513,7 +508,7 @@ func renderServices(pkg string, services []*descriptor.Service, paths swaggerPat
 
 			var schema = swaggerSchemaObject{
 				schemaCore: schemaCore{
-					Ref: fmt.Sprintf("#/definitions/%s", fullyQualifiedNameToSwaggerName(meth.RequestType.FQMN(), reg)),
+					Ref: fmt.Sprintf("#/definitions/%s", *meth.RequestType.Name),
 				},
 			}
 
@@ -544,7 +539,7 @@ func renderServices(pkg string, services []*descriptor.Service, paths swaggerPat
 						Description: desc,
 						Schema: swaggerSchemaObject{
 							schemaCore: schemaCore{
-								Ref: fmt.Sprintf("#/definitions/%s", fullyQualifiedNameToSwaggerName(meth.ResponseType.FQMN(), reg)),
+								Ref: fmt.Sprintf("#/definitions/%s", *meth.ResponseType.Name),
 							},
 						},
 					},
