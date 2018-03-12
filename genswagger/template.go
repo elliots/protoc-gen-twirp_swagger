@@ -154,12 +154,25 @@ func queryParams(message *descriptor.Message, field *descriptor.Field, prefix st
 	return params, nil
 }
 
+type t interface {
+	GetName() string
+	GetFile() descriptor.File
+}
+
+func getTypeRef(name string, pkg string) string {
+	if strings.Contains(pkg, "google") {
+		return fmt.Sprintf("#/definitions/%s", name)
+	}
+
+	return fmt.Sprintf("%s/%s.json", pkg, name)
+}
+
 // findServicesMessagesAndEnumerations discovers all messages and enums defined in the RPC methods of the service.
 func findServicesMessagesAndEnumerations(s []*descriptor.Service, reg *descriptor.Registry, m messageMap, e enumMap, refs refMap) {
 	for _, svc := range s {
 		for _, meth := range svc.Methods {
 			// Request may be fully included in query
-			if _, ok := refs[fmt.Sprintf("#/definitions/%s", *meth.RequestType.Name)]; ok {
+			if _, ok := refs[getTypeRef(meth.RequestType.GetName(), meth.RequestType.File.GetPackage())]; ok {
 				m[*meth.RequestType.Name] = meth.RequestType
 			}
 			findNestedMessagesAndEnumerations(meth.RequestType, reg, m, e)
@@ -508,7 +521,7 @@ func renderServices(pkg string, services []*descriptor.Service, paths swaggerPat
 
 			var schema = swaggerSchemaObject{
 				schemaCore: schemaCore{
-					Ref: fmt.Sprintf("#/definitions/%s", *meth.RequestType.Name),
+					Ref: getTypeRef(*meth.RequestType.Name, *meth.RequestType.File.Package),
 				},
 			}
 
@@ -539,7 +552,7 @@ func renderServices(pkg string, services []*descriptor.Service, paths swaggerPat
 						Description: desc,
 						Schema: swaggerSchemaObject{
 							schemaCore: schemaCore{
-								Ref: fmt.Sprintf("#/definitions/%s", *meth.ResponseType.Name),
+								Ref: getTypeRef(*meth.ResponseType.Name, *meth.ResponseType.File.Package),
 							},
 						},
 					},
@@ -632,8 +645,8 @@ func applyTemplate(p param) (string, error) {
 	m := messageMap{}
 	e := enumMap{}
 	findServicesMessagesAndEnumerations(p.Services, p.reg, m, e, refs)
-	renderMessagesAsDefinition(m, s.Definitions, p.reg)
-	renderEnumerationsAsDefinition(e, s.Definitions, p.reg)
+	//renderMessagesAsDefinition(m, s.Definitions, p.reg)
+	//renderEnumerationsAsDefinition(e, s.Definitions, p.reg)
 
 	// File itself might have some comments and metadata.
 	packageProtoPath := protoPathIndex(reflect.TypeOf((*pbdescriptor.FileDescriptorProto)(nil)), "Package")
