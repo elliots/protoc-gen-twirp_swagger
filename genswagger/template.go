@@ -506,8 +506,12 @@ func renderServices(pkg string, services []*descriptor.Service, paths swaggerPat
 	// Correctness of svcIdx and methIdx depends on 'services' containing the services in the same order as the 'file.Service' array.
 	for svcIdx, svc := range services {
 		for methIdx, meth := range svc.Methods {
-
-			path := fmt.Sprintf("/twirp/%s.%s/%s", pkg, *svc.Name, *meth.Name)
+			var path string
+			if pkg == "" {
+				path = fmt.Sprintf("/twirp/%s/%s", *svc.Name, *meth.Name)
+			} else {
+				path = fmt.Sprintf("/twirp/%s.%s/%s", pkg, *svc.Name, *meth.Name)
+			}
 
 			parameters := swaggerParametersObject{}
 
@@ -628,7 +632,7 @@ func applyTemplate(p param) (string, error) {
 	// Loops through all the services and their exposed GET/POST/PUT/DELETE definitions
 	// and create entries for all of them.
 	refs := refMap{}
-	if err := renderServices(*p.Package, p.Services, s.Paths, p.reg, refs); err != nil {
+	if err := renderServices(p.GetPackage(), p.Services, s.Paths, p.reg, refs); err != nil {
 		panic(err)
 	}
 
