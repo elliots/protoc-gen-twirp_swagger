@@ -236,12 +236,17 @@ func renderMessagesAsDefinition(messages messageMap, d swaggerDefinitionsObject,
 
 		for _, f := range msg.Fields {
 			fieldValue := schemaOfField(f, reg)
-			comments := fieldProtoComments(reg, msg, f)
+			rawComments := fieldProtoComments(reg, msg, f)
+			comments := strings.TrimPrefix(rawComments, "[required] ")
 			if err := updateSwaggerDataFromComments(&fieldValue, comments); err != nil {
 				panic(err)
 			}
 
 			schema.Properties = append(schema.Properties, keyVal{f.GetName(), fieldValue})
+
+			if strings.HasPrefix(rawComments, "[required] ") {
+				schema.Required = append(schema.Required, f.GetName())
+			}
 		}
 		d[fullyQualifiedNameToSwaggerName(msg.FQMN(), reg)] = schema
 	}
