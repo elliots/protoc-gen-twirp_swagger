@@ -48,6 +48,10 @@ var wktSchemas = map[string]schemaCore{
 		Type:   "boolean",
 		Format: "boolean",
 	},
+	".google.protobuf.BytesValue": schemaCore{
+		Type:   "string",
+		Format: "byte",
+	},
 }
 
 func listEnumNames(enum *descriptor.Enum) (names []string) {
