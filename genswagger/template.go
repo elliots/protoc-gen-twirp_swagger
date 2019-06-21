@@ -510,11 +510,12 @@ func renderServices(pkg string, services []*descriptor.Service, paths swaggerPat
 	// Correctness of svcIdx and methIdx depends on 'services' containing the services in the same order as the 'file.Service' array.
 	for svcIdx, svc := range services {
 		for methIdx, meth := range svc.Methods {
+			methodName := strings.Title(meth.GetName())
 			var path string
 			if pkg == "" {
-				path = fmt.Sprintf("/twirp/%s/%s", *svc.Name, *meth.Name)
+				path = fmt.Sprintf("/twirp/%s/%s", *svc.Name, methodName)
 			} else {
-				path = fmt.Sprintf("/twirp/%s.%s/%s", pkg, *svc.Name, *meth.Name)
+				path = fmt.Sprintf("/twirp/%s.%s/%s", pkg, *svc.Name, methodName)
 			}
 
 			parameters := swaggerParametersObject{}
