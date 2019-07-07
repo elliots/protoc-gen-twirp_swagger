@@ -2,12 +2,16 @@ package genswagger
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
+	swagger_options "github.com/elliots/protoc-gen-twirp_swagger/options"
 	"github.com/golang/protobuf/proto"
 	protodescriptor "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway/descriptor"
 	"github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway/httprule"
 )
@@ -54,6 +58,12 @@ func TestMessageToQueryParameters(t *testing.T) {
 							Type:   protodescriptor.FieldDescriptorProto_TYPE_DOUBLE.Enum(),
 							Number: proto.Int32(2),
 						},
+						{
+							Name:   proto.String("c"),
+							Type:   protodescriptor.FieldDescriptorProto_TYPE_STRING.Enum(),
+							Label:  protodescriptor.FieldDescriptorProto_LABEL_REPEATED.Enum(),
+							Number: proto.Int32(3),
+						},
 					},
 				},
 			},
@@ -71,6 +81,13 @@ func TestMessageToQueryParameters(t *testing.T) {
 					Required: false,
 					Type:     "number",
 					Format:   "double",
+				},
+				swaggerParameterObject{
+					Name:             "c",
+					In:               "query",
+					Required:         false,
+					Type:             "array",
+					CollectionFormat: "multi",
 				},
 			},
 		},
@@ -188,6 +205,84 @@ func TestMessageToQueryParameters(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to convert message to query parameters: %s", err)
 		}
+		// avoid checking Items for array types
+		for i := range params {
+			params[i].Items = nil
+		}
+		if !reflect.DeepEqual(params, test.Params) {
+			t.Errorf("expected %v, got %v", test.Params, params)
+		}
+	}
+}
+
+func TestMessageToQueryParametersWithJsonName(t *testing.T) {
+	type test struct {
+		MsgDescs []*protodescriptor.DescriptorProto
+		Message  string
+		Params   []swaggerParameterObject
+	}
+
+	tests := []test{
+		{
+			MsgDescs: []*protodescriptor.DescriptorProto{
+				&protodescriptor.DescriptorProto{
+					Name: proto.String("ExampleMessage"),
+					Field: []*protodescriptor.FieldDescriptorProto{
+						{
+							Name:     proto.String("test_field_a"),
+							Type:     protodescriptor.FieldDescriptorProto_TYPE_STRING.Enum(),
+							Number:   proto.Int32(1),
+							JsonName: proto.String("testFieldA"),
+						},
+					},
+				},
+			},
+			Message: "ExampleMessage",
+			Params: []swaggerParameterObject{
+				swaggerParameterObject{
+					Name:     "testFieldA",
+					In:       "query",
+					Required: false,
+					Type:     "string",
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		reg := descriptor.NewRegistry()
+		reg.SetUseJSONNamesForFields(true)
+		msgs := []*descriptor.Message{}
+		for _, msgdesc := range test.MsgDescs {
+			msgs = append(msgs, &descriptor.Message{DescriptorProto: msgdesc})
+		}
+		file := descriptor.File{
+			FileDescriptorProto: &protodescriptor.FileDescriptorProto{
+				SourceCodeInfo: &protodescriptor.SourceCodeInfo{},
+				Name:           proto.String("example.proto"),
+				Package:        proto.String("example"),
+				Dependency:     []string{},
+				MessageType:    test.MsgDescs,
+				Service:        []*protodescriptor.ServiceDescriptorProto{},
+			},
+			GoPkg: descriptor.GoPackage{
+				Path: "example.com/path/to/example/example.pb",
+				Name: "example_pb",
+			},
+			Messages: msgs,
+		}
+		reg.Load(&plugin.CodeGeneratorRequest{
+			ProtoFile: []*protodescriptor.FileDescriptorProto{file.FileDescriptorProto},
+		})
+
+		message, err := reg.LookupMsg("", ".example."+test.Message)
+		if err != nil {
+			t.Fatalf("failed to lookup message: %s", err)
+		}
+		params, err := messageToQueryParameters(message, reg, []descriptor.Parameter{})
+		if err != nil {
+			t.Fatalf("failed to convert message to query parameters: %s", err)
+		}
 		if !reflect.DeepEqual(params, test.Params) {
 			t.Errorf("expected %v, got %v", test.Params, params)
 		}
@@ -253,37 +348,30 @@ func TestApplyTemplateSimple(t *testing.T) {
 		t.Errorf("applyTemplate(%#v) failed with %v; want success", file, err)
 		return
 	}
-	got := new(swaggerObject)
-	err = json.Unmarshal([]byte(result), got)
-	if err != nil {
-		t.Errorf("json.Unmarshal(%s) failed with %v; want success", result, err)
-		return
-	}
-	if want, is, name := "2.0", got.Swagger, "Swagger"; !reflect.DeepEqual(is, want) {
+	if want, is, name := "2.0", result.Swagger, "Swagger"; !reflect.DeepEqual(is, want) {
 		t.Errorf("applyTemplate(%#v).%s = %s want to be %s", file, name, is, want)
 	}
-	if want, is, name := "", got.BasePath, "BasePath"; !reflect.DeepEqual(is, want) {
+	if want, is, name := "", result.BasePath, "BasePath"; !reflect.DeepEqual(is, want) {
 		t.Errorf("applyTemplate(%#v).%s = %s want to be %s", file, name, is, want)
 	}
-	if want, is, name := []string{"http", "https"}, got.Schemes, "Schemes"; !reflect.DeepEqual(is, want) {
+	if want, is, name := []string{"http", "https"}, result.Schemes, "Schemes"; !reflect.DeepEqual(is, want) {
 		t.Errorf("applyTemplate(%#v).%s = %s want to be %s", file, name, is, want)
 	}
-	if want, is, name := []string{"application/json"}, got.Consumes, "Consumes"; !reflect.DeepEqual(is, want) {
+	if want, is, name := []string{"application/json"}, result.Consumes, "Consumes"; !reflect.DeepEqual(is, want) {
 		t.Errorf("applyTemplate(%#v).%s = %s want to be %s", file, name, is, want)
 	}
-	if want, is, name := []string{"application/json"}, got.Produces, "Produces"; !reflect.DeepEqual(is, want) {
+	if want, is, name := []string{"application/json"}, result.Produces, "Produces"; !reflect.DeepEqual(is, want) {
 		t.Errorf("applyTemplate(%#v).%s = %s want to be %s", file, name, is, want)
 	}
 
 	// If there was a failure, print out the input and the json result for debugging.
 	if t.Failed() {
 		t.Errorf("had: %s", file)
-		t.Errorf("got: %s", result)
+		t.Errorf("got: %s", fmt.Sprint(result))
 	}
 }
 
 func TestApplyTemplateRequestWithoutClientStreaming(t *testing.T) {
-	t.Skip()
 	msgdesc := &protodescriptor.DescriptorProto{
 		Name: proto.String("ExampleMessage"),
 		Field: []*protodescriptor.FieldDescriptorProto{
@@ -408,172 +496,33 @@ func TestApplyTemplateRequestWithoutClientStreaming(t *testing.T) {
 			},
 		},
 	}
-	result, err := applyTemplate(param{File: crossLinkFixture(&file)})
+	reg := descriptor.NewRegistry()
+	reg.Load(&plugin.CodeGeneratorRequest{ProtoFile: []*protodescriptor.FileDescriptorProto{file.FileDescriptorProto}})
+	result, err := applyTemplate(param{File: crossLinkFixture(&file), reg: reg})
 	if err != nil {
 		t.Errorf("applyTemplate(%#v) failed with %v; want success", file, err)
 		return
 	}
-	var obj swaggerObject
-	err = json.Unmarshal([]byte(result), &obj)
-	if err != nil {
-		t.Errorf("applyTemplate(%#v) failed with %v; want success", file, err)
-		return
-	}
-	if want, got := "2.0", obj.Swagger; !reflect.DeepEqual(got, want) {
+	if want, got := "2.0", result.Swagger; !reflect.DeepEqual(got, want) {
 		t.Errorf("applyTemplate(%#v).Swagger = %s want to be %s", file, got, want)
 	}
-	if want, got := "", obj.BasePath; !reflect.DeepEqual(got, want) {
+	if want, got := "", result.BasePath; !reflect.DeepEqual(got, want) {
 		t.Errorf("applyTemplate(%#v).BasePath = %s want to be %s", file, got, want)
 	}
-	if want, got := []string{"http", "https"}, obj.Schemes; !reflect.DeepEqual(got, want) {
+	if want, got := []string{"http", "https"}, result.Schemes; !reflect.DeepEqual(got, want) {
 		t.Errorf("applyTemplate(%#v).Schemes = %s want to be %s", file, got, want)
 	}
-	if want, got := []string{"application/json"}, obj.Consumes; !reflect.DeepEqual(got, want) {
+	if want, got := []string{"application/json"}, result.Consumes; !reflect.DeepEqual(got, want) {
 		t.Errorf("applyTemplate(%#v).Consumes = %s want to be %s", file, got, want)
 	}
-	if want, got := []string{"application/json"}, obj.Produces; !reflect.DeepEqual(got, want) {
+	if want, got := []string{"application/json"}, result.Produces; !reflect.DeepEqual(got, want) {
 		t.Errorf("applyTemplate(%#v).Produces = %s want to be %s", file, got, want)
-	}
-	if want, got, name := "Generated for ExampleService.Echo - ", obj.Paths["/v1/echo"].Post.Summary, "Paths[/v1/echo].Post.Summary"; !reflect.DeepEqual(got, want) {
-		t.Errorf("applyTemplate(%#v).%s = %s want to be %s", file, name, got, want)
 	}
 
 	// If there was a failure, print out the input and the json result for debugging.
 	if t.Failed() {
 		t.Errorf("had: %s", file)
-		t.Errorf("got: %s", result)
-	}
-}
-
-func TestApplyTemplateRequestWithClientStreaming(t *testing.T) {
-	t.Skip()
-	msgdesc := &protodescriptor.DescriptorProto{
-		Name: proto.String("ExampleMessage"),
-		Field: []*protodescriptor.FieldDescriptorProto{
-			{
-				Name:     proto.String("nested"),
-				Label:    protodescriptor.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-				Type:     protodescriptor.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
-				TypeName: proto.String("NestedMessage"),
-				Number:   proto.Int32(1),
-			},
-		},
-	}
-	nesteddesc := &protodescriptor.DescriptorProto{
-		Name: proto.String("NestedMessage"),
-		Field: []*protodescriptor.FieldDescriptorProto{
-			{
-				Name:   proto.String("int32"),
-				Label:  protodescriptor.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-				Type:   protodescriptor.FieldDescriptorProto_TYPE_INT32.Enum(),
-				Number: proto.Int32(1),
-			},
-			{
-				Name:   proto.String("bool"),
-				Label:  protodescriptor.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-				Type:   protodescriptor.FieldDescriptorProto_TYPE_BOOL.Enum(),
-				Number: proto.Int32(2),
-			},
-		},
-	}
-	meth := &protodescriptor.MethodDescriptorProto{
-		Name:            proto.String("Echo"),
-		InputType:       proto.String("ExampleMessage"),
-		OutputType:      proto.String("ExampleMessage"),
-		ClientStreaming: proto.Bool(true),
-		ServerStreaming: proto.Bool(true),
-	}
-	svc := &protodescriptor.ServiceDescriptorProto{
-		Name:   proto.String("ExampleService"),
-		Method: []*protodescriptor.MethodDescriptorProto{meth},
-	}
-
-	msg := &descriptor.Message{
-		DescriptorProto: msgdesc,
-	}
-	nested := &descriptor.Message{
-		DescriptorProto: nesteddesc,
-	}
-
-	nestedField := &descriptor.Field{
-		Message:              msg,
-		FieldDescriptorProto: msg.GetField()[0],
-	}
-	intField := &descriptor.Field{
-		Message:              nested,
-		FieldDescriptorProto: nested.GetField()[0],
-	}
-	boolField := &descriptor.Field{
-		Message:              nested,
-		FieldDescriptorProto: nested.GetField()[1],
-	}
-	file := descriptor.File{
-		FileDescriptorProto: &protodescriptor.FileDescriptorProto{
-			SourceCodeInfo: &protodescriptor.SourceCodeInfo{},
-			Name:           proto.String("example.proto"),
-			Package:        proto.String("example"),
-			MessageType:    []*protodescriptor.DescriptorProto{msgdesc, nesteddesc},
-			Service:        []*protodescriptor.ServiceDescriptorProto{svc},
-		},
-		GoPkg: descriptor.GoPackage{
-			Path: "example.com/path/to/example/example.pb",
-			Name: "example_pb",
-		},
-		Messages: []*descriptor.Message{msg, nested},
-		Services: []*descriptor.Service{
-			{
-				ServiceDescriptorProto: svc,
-				Methods: []*descriptor.Method{
-					{
-						MethodDescriptorProto: meth,
-						RequestType:           msg,
-						ResponseType:          msg,
-						Bindings: []*descriptor.Binding{
-							{
-								HTTPMethod: "POST",
-								PathTmpl: httprule.Template{
-									Version:  1,
-									OpCodes:  []int{0, 0},
-									Template: "/v1/echo", // TODO(achew): Figure out what this hsould really be
-								},
-								PathParams: []descriptor.Parameter{
-									{
-										FieldPath: descriptor.FieldPath([]descriptor.FieldPathComponent{
-											{
-												Name:   "nested",
-												Target: nestedField,
-											},
-											{
-												Name:   "int32",
-												Target: intField,
-											},
-										}),
-										Target: intField,
-									},
-								},
-								Body: &descriptor.Body{
-									FieldPath: descriptor.FieldPath([]descriptor.FieldPathComponent{
-										{
-											Name:   "nested",
-											Target: nestedField,
-										},
-										{
-											Name:   "bool",
-											Target: boolField,
-										},
-									}),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	_, err := applyTemplate(param{File: crossLinkFixture(&file)})
-	if err == nil {
-		t.Errorf("applyTemplate(%#v) should have failed cause swagger doesn't support streaming", file)
-		return
+		t.Errorf("got: %s", fmt.Sprint(result))
 	}
 }
 
@@ -685,22 +634,16 @@ func TestApplyTemplateRequestWithUnusedReferences(t *testing.T) {
 		t.Errorf("applyTemplate(%#v) failed with %v; want success", file, err)
 		return
 	}
-	var obj swaggerObject
-	err = json.Unmarshal([]byte(result), &obj)
-	if err != nil {
-		t.Errorf("applyTemplate(%#v) failed with %v; want success", file, err)
-		return
-	}
 
 	// Only EmptyMessage must be present, not ExampleMessage
-	if want, got, name := 1, len(obj.Definitions), "len(Definitions)"; !reflect.DeepEqual(got, want) {
+	if want, got, name := 2, len(result.Definitions), "len(Definitions)"; !reflect.DeepEqual(got, want) {
 		t.Errorf("applyTemplate(%#v).%s = %d want to be %d", file, name, got, want)
 	}
 
 	// If there was a failure, print out the input and the json result for debugging.
 	if t.Failed() {
 		t.Errorf("had: %s", file)
-		t.Errorf("got: %s", result)
+		t.Errorf("got: %s", fmt.Sprint(result))
 	}
 }
 
@@ -715,6 +658,16 @@ func TestTemplateToSwaggerPath(t *testing.T) {
 		{"/{test=prefix/that/has/multiple/parts/to/it/*}", "/{test}"},
 		{"/{test1}/{test2}", "/{test1}/{test2}"},
 		{"/{test1}/{test2}/", "/{test1}/{test2}/"},
+		{"/{name=prefix/*}", "/{name=prefix/*}"},
+		{"/{name=prefix1/*/prefix2/*}", "/{name=prefix1/*/prefix2/*}"},
+		{"/{user.name=prefix/*}", "/{user.name=prefix/*}"},
+		{"/{user.name=prefix1/*/prefix2/*}", "/{user.name=prefix1/*/prefix2/*}"},
+		{"/{parent=prefix/*}/children", "/{parent=prefix/*}/children"},
+		{"/{name=prefix/*}:customMethod", "/{name=prefix/*}:customMethod"},
+		{"/{name=prefix1/*/prefix2/*}:customMethod", "/{name=prefix1/*/prefix2/*}:customMethod"},
+		{"/{user.name=prefix/*}:customMethod", "/{user.name=prefix/*}:customMethod"},
+		{"/{user.name=prefix1/*/prefix2/*}:customMethod", "/{user.name=prefix1/*/prefix2/*}:customMethod"},
+		{"/{parent=prefix/*}/children:customMethod", "/{parent=prefix/*}/children:customMethod"},
 	}
 
 	for _, data := range tests {
@@ -727,9 +680,10 @@ func TestTemplateToSwaggerPath(t *testing.T) {
 
 func TestResolveFullyQualifiedNameToSwaggerName(t *testing.T) {
 	var tests = []struct {
-		input       string
-		output      string
-		listOfFQMNs []string
+		input                string
+		output               string
+		listOfFQMNs          []string
+		useFQNForSwaggerName bool
 	}{
 		{
 			".a.b.C",
@@ -737,6 +691,7 @@ func TestResolveFullyQualifiedNameToSwaggerName(t *testing.T) {
 			[]string{
 				".a.b.C",
 			},
+			false,
 		},
 		{
 			".a.b.C",
@@ -745,6 +700,7 @@ func TestResolveFullyQualifiedNameToSwaggerName(t *testing.T) {
 				".a.C",
 				".a.b.C",
 			},
+			false,
 		},
 		{
 			".a.b.C",
@@ -754,11 +710,22 @@ func TestResolveFullyQualifiedNameToSwaggerName(t *testing.T) {
 				".a.C",
 				".a.b.C",
 			},
+			false,
+		},
+		{
+			".a.b.C",
+			"a.b.C",
+			[]string{
+				".C",
+				".a.C",
+				".a.b.C",
+			},
+			true,
 		},
 	}
 
 	for _, data := range tests {
-		names := resolveFullyQualifiedNameToSwaggerNames(data.listOfFQMNs)
+		names := resolveFullyQualifiedNameToSwaggerNames(data.listOfFQMNs, data.useFQNForSwaggerName)
 		output := names[data.input]
 		if output != data.output {
 			t.Errorf("Expected fullyQualifiedNameToSwaggerName(%v) to be %s but got %s",
@@ -791,6 +758,7 @@ func TestFQMNtoSwaggerName(t *testing.T) {
 func TestSchemaOfField(t *testing.T) {
 	type test struct {
 		field    *descriptor.Field
+		refs     refMap
 		expected schemaCore
 	}
 
@@ -802,6 +770,7 @@ func TestSchemaOfField(t *testing.T) {
 					Type: protodescriptor.FieldDescriptorProto_TYPE_STRING.Enum(),
 				},
 			},
+			refs: make(refMap),
 			expected: schemaCore{
 				Type: "string",
 			},
@@ -814,6 +783,7 @@ func TestSchemaOfField(t *testing.T) {
 					Label: protodescriptor.FieldDescriptorProto_LABEL_REPEATED.Enum(),
 				},
 			},
+			refs: make(refMap),
 			expected: schemaCore{
 				Type: "array",
 				Items: &swaggerItemsObject{
@@ -829,6 +799,7 @@ func TestSchemaOfField(t *testing.T) {
 					Type:     protodescriptor.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
 				},
 			},
+			refs: make(refMap),
 			expected: schemaCore{
 				Type: "string",
 			},
@@ -842,6 +813,7 @@ func TestSchemaOfField(t *testing.T) {
 					Label:    protodescriptor.FieldDescriptorProto_LABEL_REPEATED.Enum(),
 				},
 			},
+			refs: make(refMap),
 			expected: schemaCore{
 				Type: "array",
 				Items: &swaggerItemsObject{
@@ -852,11 +824,124 @@ func TestSchemaOfField(t *testing.T) {
 		{
 			field: &descriptor.Field{
 				FieldDescriptorProto: &protodescriptor.FieldDescriptorProto{
+					Name:     proto.String("wrapped_field"),
+					TypeName: proto.String(".google.protobuf.BytesValue"),
+					Type:     protodescriptor.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+				},
+			},
+			refs: make(refMap),
+			expected: schemaCore{
+				Type:   "string",
+				Format: "byte",
+			},
+		},
+		{
+			field: &descriptor.Field{
+				FieldDescriptorProto: &protodescriptor.FieldDescriptorProto{
+					Name:     proto.String("wrapped_field"),
+					TypeName: proto.String(".google.protobuf.Int32Value"),
+					Type:     protodescriptor.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+				},
+			},
+			refs: make(refMap),
+			expected: schemaCore{
+				Type:   "integer",
+				Format: "int32",
+			},
+		},
+		{
+			field: &descriptor.Field{
+				FieldDescriptorProto: &protodescriptor.FieldDescriptorProto{
+					Name:     proto.String("wrapped_field"),
+					TypeName: proto.String(".google.protobuf.UInt32Value"),
+					Type:     protodescriptor.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+				},
+			},
+			refs: make(refMap),
+			expected: schemaCore{
+				Type:   "integer",
+				Format: "int64",
+			},
+		},
+		{
+			field: &descriptor.Field{
+				FieldDescriptorProto: &protodescriptor.FieldDescriptorProto{
+					Name:     proto.String("wrapped_field"),
+					TypeName: proto.String(".google.protobuf.Int64Value"),
+					Type:     protodescriptor.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+				},
+			},
+			refs: make(refMap),
+			expected: schemaCore{
+				Type:   "string",
+				Format: "int64",
+			},
+		},
+		{
+			field: &descriptor.Field{
+				FieldDescriptorProto: &protodescriptor.FieldDescriptorProto{
+					Name:     proto.String("wrapped_field"),
+					TypeName: proto.String(".google.protobuf.UInt64Value"),
+					Type:     protodescriptor.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+				},
+			},
+			refs: make(refMap),
+			expected: schemaCore{
+				Type:   "string",
+				Format: "uint64",
+			},
+		},
+		{
+			field: &descriptor.Field{
+				FieldDescriptorProto: &protodescriptor.FieldDescriptorProto{
+					Name:     proto.String("wrapped_field"),
+					TypeName: proto.String(".google.protobuf.FloatValue"),
+					Type:     protodescriptor.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+				},
+			},
+			refs: make(refMap),
+			expected: schemaCore{
+				Type:   "number",
+				Format: "float",
+			},
+		},
+		{
+			field: &descriptor.Field{
+				FieldDescriptorProto: &protodescriptor.FieldDescriptorProto{
+					Name:     proto.String("wrapped_field"),
+					TypeName: proto.String(".google.protobuf.DoubleValue"),
+					Type:     protodescriptor.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+				},
+			},
+			refs: make(refMap),
+			expected: schemaCore{
+				Type:   "number",
+				Format: "double",
+			},
+		},
+		{
+			field: &descriptor.Field{
+				FieldDescriptorProto: &protodescriptor.FieldDescriptorProto{
+					Name:     proto.String("wrapped_field"),
+					TypeName: proto.String(".google.protobuf.BoolValue"),
+					Type:     protodescriptor.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+				},
+			},
+			refs: make(refMap),
+			expected: schemaCore{
+				Type:   "boolean",
+				Format: "boolean",
+			},
+		},
+		{
+			field: &descriptor.Field{
+				FieldDescriptorProto: &protodescriptor.FieldDescriptorProto{
 					Name:     proto.String("message_field"),
 					TypeName: proto.String(".example.Message"),
 					Type:     protodescriptor.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
 				},
 			},
+			refs: refMap{".example.Message": struct{}{}},
 			expected: schemaCore{
 				Ref: "#/definitions/exampleMessage",
 			},
@@ -893,15 +978,336 @@ func TestSchemaOfField(t *testing.T) {
 	})
 
 	for _, test := range tests {
-		actual := schemaOfField(test.field, reg)
-		if e, a := test.expected.Type, actual.Type; e != a {
-			t.Errorf("Expected schemaOfField(%v).Type = %s, actual: %s", test.field, e, a)
+		refs := make(refMap)
+		actual := schemaOfField(test.field, reg, refs)
+		expectedSchemaObject := swaggerSchemaObject{schemaCore: test.expected}
+		if e, a := expectedSchemaObject, actual; !reflect.DeepEqual(a, e) {
+			t.Errorf("Expected schemaOfField(%v) = %v, actual: %v", test.field, e, a)
 		}
-		if e, a := test.expected.Ref, actual.Ref; e != a {
-			t.Errorf("Expected schemaOfField(%v).Ref = %s, actual: %s", test.field, e, a)
+		if !reflect.DeepEqual(refs, test.refs) {
+			t.Errorf("Expected schemaOfField(%v) to add refs %v, not %v", test.field, test.refs, refs)
 		}
-		if e, a := test.expected.Items.getType(), actual.Items.getType(); e != a {
-			t.Errorf("Expected schemaOfField(%v).Items.Type = %v, actual.Type: %v", test.field, e, a)
-		}
+	}
+}
+
+func TestRenderMessagesAsDefinition(t *testing.T) {
+
+	tests := []struct {
+		descr    string
+		msgDescs []*protodescriptor.DescriptorProto
+		schema   map[string]swagger_options.Schema // per-message schema to add
+		defs     swaggerDefinitionsObject
+	}{
+		{
+			descr: "no swagger options",
+			msgDescs: []*protodescriptor.DescriptorProto{
+				&protodescriptor.DescriptorProto{Name: proto.String("Message")},
+			},
+			schema: map[string]swagger_options.Schema{},
+			defs: map[string]swaggerSchemaObject{
+				"Message": swaggerSchemaObject{schemaCore: schemaCore{Type: "object"}},
+			},
+		},
+		{
+			descr: "example option",
+			msgDescs: []*protodescriptor.DescriptorProto{
+				&protodescriptor.DescriptorProto{Name: proto.String("Message")},
+			},
+			schema: map[string]swagger_options.Schema{
+				"Message": swagger_options.Schema{
+					Example: &any.Any{
+						TypeUrl: "this_isnt_used",
+						Value:   []byte(`{"foo":"bar"}`),
+					},
+				},
+			},
+			defs: map[string]swaggerSchemaObject{
+				"Message": swaggerSchemaObject{schemaCore: schemaCore{
+					Type:    "object",
+					Example: json.RawMessage(`{"foo":"bar"}`),
+				}},
+			},
+		},
+		{
+			descr: "example option with something non-json",
+			msgDescs: []*protodescriptor.DescriptorProto{
+				&protodescriptor.DescriptorProto{Name: proto.String("Message")},
+			},
+			schema: map[string]swagger_options.Schema{
+				"Message": swagger_options.Schema{
+					Example: &any.Any{
+						Value: []byte(`XXXX anything goes XXXX`),
+					},
+				},
+			},
+			defs: map[string]swaggerSchemaObject{
+				"Message": swaggerSchemaObject{schemaCore: schemaCore{
+					Type:    "object",
+					Example: json.RawMessage(`XXXX anything goes XXXX`),
+				}},
+			},
+		},
+		{
+			descr: "external docs option",
+			msgDescs: []*protodescriptor.DescriptorProto{
+				&protodescriptor.DescriptorProto{Name: proto.String("Message")},
+			},
+			schema: map[string]swagger_options.Schema{
+				"Message": swagger_options.Schema{
+					ExternalDocs: &swagger_options.ExternalDocumentation{
+						Description: "glorious docs",
+						Url:         "https://nada",
+					},
+				},
+			},
+			defs: map[string]swaggerSchemaObject{
+				"Message": swaggerSchemaObject{
+					schemaCore: schemaCore{
+						Type: "object",
+					},
+					ExternalDocs: &swaggerExternalDocumentationObject{
+						Description: "glorious docs",
+						URL:         "https://nada",
+					},
+				},
+			},
+		},
+		{
+			descr: "JSONSchema options",
+			msgDescs: []*protodescriptor.DescriptorProto{
+				&protodescriptor.DescriptorProto{Name: proto.String("Message")},
+			},
+			schema: map[string]swagger_options.Schema{
+				"Message": swagger_options.Schema{
+					JsonSchema: &swagger_options.JSONSchema{
+						Title:            "title",
+						Description:      "desc",
+						MultipleOf:       100,
+						Maximum:          101,
+						ExclusiveMaximum: true,
+						Minimum:          1,
+						ExclusiveMinimum: true,
+						MaxLength:        10,
+						MinLength:        3,
+						Pattern:          "[a-z]+",
+						MaxItems:         20,
+						MinItems:         2,
+						UniqueItems:      true,
+						MaxProperties:    33,
+						MinProperties:    22,
+						Required:         []string{"req"},
+						ReadOnly:         true,
+					},
+				},
+			},
+			defs: map[string]swaggerSchemaObject{
+				"Message": swaggerSchemaObject{
+					schemaCore: schemaCore{
+						Type: "object",
+					},
+					Title:            "title",
+					Description:      "desc",
+					MultipleOf:       100,
+					Maximum:          101,
+					ExclusiveMaximum: true,
+					Minimum:          1,
+					ExclusiveMinimum: true,
+					MaxLength:        10,
+					MinLength:        3,
+					Pattern:          "[a-z]+",
+					MaxItems:         20,
+					MinItems:         2,
+					UniqueItems:      true,
+					MaxProperties:    33,
+					MinProperties:    22,
+					Required:         []string{"req"},
+					ReadOnly:         true,
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.descr, func(t *testing.T) {
+
+			msgs := []*descriptor.Message{}
+			for _, msgdesc := range test.msgDescs {
+				msgdesc.Options = &protodescriptor.MessageOptions{}
+				msgs = append(msgs, &descriptor.Message{DescriptorProto: msgdesc})
+			}
+
+			reg := descriptor.NewRegistry()
+			file := descriptor.File{
+				FileDescriptorProto: &protodescriptor.FileDescriptorProto{
+					SourceCodeInfo: &protodescriptor.SourceCodeInfo{},
+					Name:           proto.String("example.proto"),
+					Package:        proto.String("example"),
+					Dependency:     []string{},
+					MessageType:    test.msgDescs,
+					EnumType:       []*protodescriptor.EnumDescriptorProto{},
+					Service:        []*protodescriptor.ServiceDescriptorProto{},
+				},
+				Messages: msgs,
+			}
+			reg.Load(&plugin.CodeGeneratorRequest{
+				ProtoFile: []*protodescriptor.FileDescriptorProto{file.FileDescriptorProto},
+			})
+
+			msgMap := map[string]*descriptor.Message{}
+			for _, d := range test.msgDescs {
+				name := d.GetName()
+				msg, err := reg.LookupMsg("example", name)
+				if err != nil {
+					t.Fatalf("lookup message %v: %v", name, err)
+				}
+				msgMap[msg.FQMN()] = msg
+
+				if schema, ok := test.schema[name]; ok {
+					err := proto.SetExtension(d.Options, swagger_options.E_Openapiv2Schema, &schema)
+					if err != nil {
+						t.Fatalf("SetExtension(%s, ...) returned error: %v", msg, err)
+					}
+				}
+			}
+
+			refs := make(refMap)
+			actual := make(swaggerDefinitionsObject)
+			renderMessagesAsDefinition(msgMap, actual, reg, refs)
+
+			if !reflect.DeepEqual(actual, test.defs) {
+				t.Errorf("Expected renderMessagesAsDefinition() to add defs %+v, not %+v", test.defs, actual)
+			}
+		})
+	}
+}
+
+func TestUpdateSwaggerDataFromComments(t *testing.T) {
+
+	tests := []struct {
+		descr                 string
+		swaggerObject         interface{}
+		comments              string
+		expectedError         error
+		expectedSwaggerObject interface{}
+	}{
+		{
+			descr:                 "empty comments",
+			swaggerObject:         nil,
+			expectedSwaggerObject: nil,
+			comments:              "",
+			expectedError:         nil,
+		},
+		{
+			descr:         "set field to read only",
+			swaggerObject: &swaggerSchemaObject{},
+			expectedSwaggerObject: &swaggerSchemaObject{
+				ReadOnly:    true,
+				Description: "... Output only. ...",
+			},
+			comments:      "... Output only. ...",
+			expectedError: nil,
+		},
+		{
+			descr:         "set title",
+			swaggerObject: &swaggerSchemaObject{},
+			expectedSwaggerObject: &swaggerSchemaObject{
+				Title: "Comment with no trailing dot",
+			},
+			comments:      "Comment with no trailing dot",
+			expectedError: nil,
+		},
+		{
+			descr:         "set description",
+			swaggerObject: &swaggerSchemaObject{},
+			expectedSwaggerObject: &swaggerSchemaObject{
+				Description: "Comment with trailing dot.",
+			},
+			comments:      "Comment with trailing dot.",
+			expectedError: nil,
+		},
+		{
+			descr: "use info object",
+			swaggerObject: &swaggerObject{
+				Info: swaggerInfoObject{},
+			},
+			expectedSwaggerObject: &swaggerObject{
+				Info: swaggerInfoObject{
+					Description: "Comment with trailing dot.",
+				},
+			},
+			comments:      "Comment with trailing dot.",
+			expectedError: nil,
+		},
+		{
+			descr:         "multi line comment with title",
+			swaggerObject: &swaggerSchemaObject{},
+			expectedSwaggerObject: &swaggerSchemaObject{
+				Title:       "First line",
+				Description: "Second line",
+			},
+			comments:      "First line\n\nSecond line",
+			expectedError: nil,
+		},
+		{
+			descr:         "multi line comment no title",
+			swaggerObject: &swaggerSchemaObject{},
+			expectedSwaggerObject: &swaggerSchemaObject{
+				Description: "First line.\n\nSecond line",
+			},
+			comments:      "First line.\n\nSecond line",
+			expectedError: nil,
+		},
+		{
+			descr:         "multi line comment with summary with dot",
+			swaggerObject: &swaggerOperationObject{},
+			expectedSwaggerObject: &swaggerOperationObject{
+				Summary:     "First line.",
+				Description: "Second line",
+			},
+			comments:      "First line.\n\nSecond line",
+			expectedError: nil,
+		},
+		{
+			descr:         "multi line comment with summary no dot",
+			swaggerObject: &swaggerOperationObject{},
+			expectedSwaggerObject: &swaggerOperationObject{
+				Summary:     "First line",
+				Description: "Second line",
+			},
+			comments:      "First line\n\nSecond line",
+			expectedError: nil,
+		},
+		{
+			descr:                 "multi line comment with summary no dot",
+			swaggerObject:         &schemaCore{},
+			expectedSwaggerObject: &schemaCore{},
+			comments:              "Any comment",
+			expectedError:         errors.New("no description nor summary property"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.descr, func(t *testing.T) {
+			err := updateSwaggerDataFromComments(test.swaggerObject, test.comments, false)
+
+			if test.expectedError == nil {
+				if err != nil {
+					t.Errorf("unexpected error '%v'", err)
+				}
+				if !reflect.DeepEqual(test.swaggerObject, test.expectedSwaggerObject) {
+					t.Errorf("swaggerObject was not updated corretly, expected '%+v', got '%+v'", test.expectedSwaggerObject, test.swaggerObject)
+				}
+			} else {
+				if err == nil {
+					t.Error("expected update error not returned")
+				}
+				if !reflect.DeepEqual(test.swaggerObject, test.expectedSwaggerObject) {
+					t.Errorf("swaggerObject was not updated corretly, expected '%+v', got '%+v'", test.expectedSwaggerObject, test.swaggerObject)
+				}
+				if err.Error() != test.expectedError.Error() {
+					t.Errorf("expected error malformed, expected %q, got %q", test.expectedError.Error(), err.Error())
+				}
+			}
+		})
 	}
 }
