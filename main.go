@@ -19,6 +19,8 @@ var (
 	importPrefix    = flag.String("import_prefix", "", "prefix to be added to go package paths for imported proto files")
 	file            = flag.String("file", "stdin", "where to load data from")
 	allowDeleteBody = flag.Bool("allow_delete_body", false, "unless set, HTTP DELETE methods may not have a body")
+	allowMerge      = flag.Bool("allow_merge", false, "if set, generation one swagger file out of multiple protos")
+	mergeFileName   = flag.String("merge_file_name", "apidocs", "target swagger file name prefix after merge")
 )
 
 func parseReq(r io.Reader) (*plugin.CodeGeneratorRequest, error) {
@@ -62,6 +64,9 @@ func main() {
 
 	reg.SetPrefix(*importPrefix)
 	reg.SetAllowDeleteBody(*allowDeleteBody)
+	reg.SetAllowMerge(*allowMerge)
+	reg.SetMergeFileName(*mergeFileName)
+
 	for k, v := range pkgMap {
 		reg.AddPkgMap(k, v)
 	}
@@ -119,6 +124,13 @@ func parseReqParam(param string, f *flag.FlagSet, pkgMap map[string]string) erro
 		spec := strings.SplitN(p, "=", 2)
 		if len(spec) == 1 {
 			if spec[0] == "allow_delete_body" {
+				err := f.Set(spec[0], "true")
+				if err != nil {
+					return fmt.Errorf("Cannot set flag %s: %v", p, err)
+				}
+				continue
+			}
+			if spec[0] == "allow_merge" {
 				err := f.Set(spec[0], "true")
 				if err != nil {
 					return fmt.Errorf("Cannot set flag %s: %v", p, err)
