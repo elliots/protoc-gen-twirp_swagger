@@ -41,12 +41,11 @@ var wktSchemas = map[string]schemaCore{
 		Format: "int64",
 	},
 	".google.protobuf.Int64Value": schemaCore{
-		Type:   "string",
+		Type:   "integer",
 		Format: "int64",
 	},
 	".google.protobuf.UInt64Value": schemaCore{
-		Type:   "string",
-		Format: "uint64",
+		Type:   "integer",
 	},
 	".google.protobuf.FloatValue": schemaCore{
 		Type:   "number",
