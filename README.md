@@ -1,3 +1,7 @@
+## ARCHIVED - Use https://github.com/go-bridget/twirp-swagger-gen instead
+
+
+
 # Twirp Swagger Generator
 
 NOTE: This is new and barely tested. If you find problems, please open an issue :)
